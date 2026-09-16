@@ -7,11 +7,15 @@ export const dynamic = "force-dynamic";
 export const preferredRegion = "fra1";
 
 export async function GET(request: Request) {
-  const q = new URL(request.url).searchParams.get("q") ?? "";
+  const params = new URL(request.url).searchParams;
+  const q = params.get("q") ?? "";
+  // Addresses and points of interest, so a destination can be a street rather
+  // than a station and the last walk comes back with the journey.
+  const places = params.get("places") !== "0";
   if (q.trim().length < 2) return NextResponse.json({ stations: [] });
 
   try {
-    const stations = await searchStations(q);
+    const stations = await searchStations(q, 8, places);
     return NextResponse.json(
       { stations },
       // Station names do not change minute to minute, so let the edge hold them

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { findCorridors } from "@/lib/corridors";
+import { departures } from "@/lib/hafas";
 import { nowInVienna } from "@/lib/clock";
 
 export const dynamic = "force-dynamic";
@@ -7,28 +7,28 @@ export const dynamic = "force-dynamic";
 // is paid twice, once out and once back.
 export const preferredRegion = "fra1";
 
+/** What is leaving from one station, with live delays. */
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
-  const from = params.get("from");
-  const to = params.get("to");
+  const station = params.get("station");
   const when = params.get("when") || nowInVienna();
-  const quick = params.get("quick") === "1";
+  const limit = Math.min(Number(params.get("limit")) || 12, 30);
 
-  if (!from || !to) {
+  if (!station) {
     return NextResponse.json(
-      { corridors: [], error: "from und to sind erforderlich" },
+      { departures: [], error: "station ist erforderlich" },
       { status: 400 },
     );
   }
 
   try {
-    const corridors = await findCorridors({ fromLid: from, toLid: to, when }, { quick });
+    const rows = await departures(station, when, limit);
     return NextResponse.json(
-      { corridors, when },
+      { departures: rows, when },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unbekannter Fehler";
-    return NextResponse.json({ corridors: [], error: message }, { status: 502 });
+    return NextResponse.json({ departures: [], error: message }, { status: 502 });
   }
 }

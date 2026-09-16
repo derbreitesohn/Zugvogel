@@ -120,6 +120,9 @@ export function StationField({ label, placeholder, value, onChange }: Props) {
               onMouseEnter={() => setActive(index)}
               onClick={() => pick(station)}
             >
+              <span className="kind" aria-hidden="true">
+                {station.kind === "S" ? "⏵" : station.kind === "A" ? "⌂" : "◎"}
+              </span>
               {station.name}
             </button>
           ))}

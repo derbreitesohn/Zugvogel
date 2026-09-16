@@ -9,7 +9,14 @@ import {
   hhmm,
   lineKind,
 } from "@/lib/format";
-import type { Corridor, Journey } from "@/lib/types";
+import type { BikeCarriage, Corridor, Journey, Leg } from "@/lib/types";
+
+const BIKE_LABEL: Record<Exclude<BikeCarriage, null>, string> = {
+  yes: "Rad möglich",
+  limited: "Rad begrenzt",
+  reservation: "Rad mit Reservierung",
+  no: "kein Rad",
+};
 
 function Lines({ journey }: { journey: Journey }) {
   const rides = journey.legs.filter((leg) => leg.kind === "ride");
@@ -27,85 +34,138 @@ function Lines({ journey }: { journey: Journey }) {
   );
 }
 
-function JourneyRow({ journey }: { journey: Journey }) {
-  const [open, setOpen] = useState(false);
-  const delay = delayLabel(journey);
-  const rides = journey.legs.filter((leg) => leg.kind === "ride");
-
-  return (
-    <button
-      type="button"
-      className="journey"
-      onClick={() => setOpen((v) => !v)}
-      aria-expanded={open}
-    >
-      <div className="journey-top">
-        <span className="clock tnum">{hhmm(journey.depPlanned)}</span>
-        <span className="arrow">→</span>
-        <span className="clock tnum">{hhmm(journey.arrPlanned)}</span>
-        {delay && (
-          <span className="delay tnum" data-tone={delay.tone}>
-            {delay.text}
+function LegDetail({ leg }: { leg: Leg }) {
+  if (leg.kind === "walk") {
+    return (
+      <div className="leg leg-walk">
+        <span className="tnum leg-time">
+          {hhmm(leg.depPlanned)}–{hhmm(leg.arrPlanned)}
+        </span>
+        <span>
+          <strong>Zu Fuß</strong>
+          {leg.distance !== null && " · " + leg.distance + " m"}
+          {leg.walkMinutes !== null && " · " + leg.walkMinutes + " min"}
+          <br />
+          <span className="muted">
+            {leg.from} → {leg.to}
           </span>
-        )}
-        <span className="meta tnum">
-          {durationLabel(journey.duration)} · {changesLabel(journey.changes)}
         </span>
       </div>
+    );
+  }
 
-      <Lines journey={journey} />
-
-      {/* A four minute change is where a plan quietly falls apart, so say it
-          before the traveller finds out on the platform. */}
-      {journey.minTransfer !== null && journey.minTransfer <= 5 && (
-        <p className="tight">
-          Nur {journey.minTransfer} min Umstieg in {journey.transferHubs[0]}
-        </p>
-      )}
-
-      {open && (
-        <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
-          {rides.map((leg, index) => (
-            <div key={index} style={{ display: "flex", gap: 10, fontSize: 13.5 }}>
-              <span
-                className="tnum"
-                style={{ color: "var(--ink-3)", minWidth: 92, flex: "none" }}
-              >
-                {hhmm(leg.depPlanned)}–{hhmm(leg.arrPlanned)}
-              </span>
-              <span style={{ minWidth: 0 }}>
-                <strong style={{ fontWeight: 620 }}>{leg.line}</strong>
-                {leg.direction ? " Richtung " + leg.direction : ""}
-                <br />
-                <span style={{ color: "var(--ink-2)" }}>
-                  {leg.from}
-                  {leg.depPlatform ? " (Gl. " + leg.depPlatform + ")" : ""} → {leg.to}
-                  {leg.arrPlatform ? " (Gl. " + leg.arrPlatform + ")" : ""}
-                </span>
-                {leg.depActual !== null && leg.depDelay > 0 && (
-                  <span
-                    className="delay tnum"
-                    data-tone={delayTone(leg.depDelay)}
-                    style={{ marginLeft: 8 }}
-                  >
-                    +{leg.depDelay}
-                  </span>
-                )}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-    </button>
+  return (
+    <div className="leg">
+      <span className="tnum leg-time">
+        {hhmm(leg.depPlanned)}–{hhmm(leg.arrPlanned)}
+      </span>
+      <span>
+        <strong>{leg.line}</strong>
+        {leg.direction ? " Richtung " + leg.direction : ""}
+        {leg.depActual !== null && leg.depDelay > 0 && (
+          <span
+            className="delay tnum"
+            data-tone={delayTone(leg.depDelay)}
+            style={{ marginLeft: 8 }}
+          >
+            +{leg.depDelay}
+          </span>
+        )}
+        <br />
+        <span className="muted">
+          {leg.from}
+          {leg.depPlatform ? " (Gl. " + leg.depPlatform + ")" : ""} → {leg.to}
+          {leg.arrPlatform ? " (Gl. " + leg.arrPlatform + ")" : ""}
+        </span>
+        {leg.attributes.length > 0 && (
+          <span className="facilities">
+            {leg.attributes.slice(0, 4).map((a) => (
+              <span key={a}>{a}</span>
+            ))}
+          </span>
+        )}
+      </span>
+    </div>
   );
 }
 
-export function CorridorList({ corridors }: { corridors: Corridor[] }) {
+function JourneyRow({ journey }: { journey: Journey }) {
+  const [open, setOpen] = useState(false);
+  const delay = delayLabel(journey);
+
+  return (
+    <div className="journey-wrap">
+      <button
+        type="button"
+        className="journey"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <div className="journey-top">
+          <span className="clock tnum">{hhmm(journey.depPlanned)}</span>
+          <span className="arrow">→</span>
+          <span className="clock tnum">{hhmm(journey.arrPlanned)}</span>
+          {delay && (
+            <span className="delay tnum" data-tone={delay.tone}>
+              {delay.text}
+            </span>
+          )}
+          <span className="meta tnum">
+            {durationLabel(journey.duration)} · {changesLabel(journey.changes)}
+          </span>
+        </div>
+
+        <Lines journey={journey} />
+
+        <div className="chips">
+          {journey.walkMinutes > 0 && <span className="chip">🚶 {journey.walkMinutes} min</span>}
+          {journey.bike && (
+            <span className="chip" data-warn={journey.bike === "no"}>
+              🚲 {BIKE_LABEL[journey.bike]}
+            </span>
+          )}
+          {journey.stepFree && <span className="chip">♿ stufenfrei</span>}
+        </div>
+
+        {/* A four minute change is where a plan quietly falls apart, so say it
+            before the traveller finds out on the platform. */}
+        {journey.minTransfer !== null && journey.minTransfer <= 5 && (
+          <p className="tight">
+            Nur {journey.minTransfer} min Umstieg in {journey.transferHubs[0]}
+          </p>
+        )}
+      </button>
+
+      {open && (
+        <div className="legs">
+          {journey.legs.map((leg, index) => (
+            <LegDetail key={index} leg={leg} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function CorridorList({
+  corridors,
+  onFocus,
+}: {
+  corridors: Corridor[];
+  onFocus?: (index: number | undefined) => void;
+}) {
   return (
     <>
       {corridors.map((corridor, index) => (
-        <section className="card corridor" key={corridor.key}>
+        <section
+          className="card corridor"
+          key={corridor.key}
+          data-index={index % 4}
+          onMouseEnter={() => onFocus?.(index)}
+          onMouseLeave={() => onFocus?.(undefined)}
+        >
           <header className="corridor-head">
+            <i className="swatch" data-index={index % 4} />
             <h3>{corridor.label}</h3>
             <span className="badge tnum" data-tone={index === 0 ? "best" : undefined}>
               {index === 0

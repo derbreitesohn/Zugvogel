@@ -1,4 +1,11 @@
-import type { Journey, Leg, Station } from "./types";
+import type {
+  BikeCarriage,
+  Departure,
+  Journey,
+  LatLon,
+  Leg,
+  Station,
+} from "./types";
 
 /**
  * The backend OEBB Scotty itself talks to. Undocumented but stable, and the only
@@ -101,6 +108,17 @@ function minutesBetween(a: string | null, b: string | null): number {
   return Math.round((Date.parse(b + "Z") - Date.parse(a + "Z")) / 60000);
 }
 
+/** "000730" -> 7 (minutes, rounded up so a 30 second walk is not "0 min"). */
+function durationMinutes(raw: string | undefined): number | null {
+  if (!raw) return null;
+  const s = raw.padStart(6, "0");
+  const seconds =
+    Number(s.slice(0, s.length - 4)) * 3600 +
+    Number(s.slice(-4, -2)) * 60 +
+    Number(s.slice(-2));
+  return Math.max(1, Math.round(seconds / 60));
+}
+
 function platformOf(node: any, prefix: "d" | "a"): string | null {
   const modern = node?.[prefix + "PltfR"] ?? node?.[prefix + "PltfS"];
   if (modern && typeof modern === "object" && modern.txt) return String(modern.txt);
@@ -108,25 +126,125 @@ function platformOf(node: any, prefix: "d" | "a"): string | null {
   return legacy ? String(legacy) : null;
 }
 
+/* ------------------------------------------------------------ geometry ---- */
+
+/**
+ * Google's polyline algorithm, which is what `polyEnc: "GPA"` asks the upstream
+ * for. Coordinates arrive as latitude then longitude.
+ */
+function decodePolyline(encoded: string): LatLon[] {
+  const points: LatLon[] = [];
+  let index = 0;
+  let lat = 0;
+  let lon = 0;
+
+  while (index < encoded.length) {
+    let shift = 0;
+    let result = 0;
+    let byte: number;
+    do {
+      byte = encoded.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+    lat += result & 1 ? ~(result >> 1) : result >> 1;
+
+    shift = 0;
+    result = 0;
+    do {
+      byte = encoded.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20);
+    lon += result & 1 ? ~(result >> 1) : result >> 1;
+
+    points.push([lat / 1e5, lon / 1e5]);
+  }
+  return points;
+}
+
+/**
+ * A single long distance leg can carry hundreds of points, and nobody can see
+ * the difference on a phone. Keep the ends exactly and thin the middle.
+ */
+function thin(points: LatLon[], max = 60): LatLon[] {
+  if (points.length <= max) return points;
+  const step = (points.length - 1) / (max - 1);
+  const out: LatLon[] = [];
+  for (let i = 0; i < max; i++) out.push(points[Math.round(i * step)]);
+  return out;
+}
+
+function geometryOf(polyG: any, decoded: LatLon[][]): LatLon[] {
+  const indices: number[] = polyG?.polyXL ?? [];
+  const joined: LatLon[] = [];
+  for (const i of indices) if (decoded[i]) joined.push(...decoded[i]);
+  return thin(joined);
+}
+
+/* ----------------------------------------------------------- attributes ---- */
+
+function bikeFrom(texts: string[]): BikeCarriage {
+  const bike = texts.find((t) => /fahrrad/i.test(t));
+  if (!bike) return null;
+  if (/keine|nicht möglich|nicht moeglich/i.test(bike)) return "no";
+  if (/reservierung/i.test(bike)) return "reservation";
+  if (/begrenzt|beschränkt|beschraenkt/i.test(bike)) return "limited";
+  return "yes";
+}
+
+function stepFreeFrom(texts: string[]): boolean {
+  return texts.some((t) => /rollstuhl|niederflur|einstiegshilfe/i.test(t));
+}
+
+/** Facility notes the operator attached to this train. */
+function attributesOf(section: any, remL: any[]): string[] {
+  const out: string[] = [];
+  for (const msg of section?.jny?.msgL ?? []) {
+    if (msg.type !== "REM") continue;
+    const rem = remL[msg.remX];
+    // "A" is an amenity note; the other types are disruptions and timetable
+    // remarks, which belong in a different part of the UI.
+    if (!rem || rem.type !== "A") continue;
+    const text = String(rem.txtN ?? rem.txtS ?? "").trim();
+    if (text && !out.includes(text)) out.push(text);
+  }
+  return out;
+}
+
 /* ------------------------------------------------------------- stations ---- */
 
-export async function searchStations(query: string, limit = 8): Promise<Station[]> {
+function toStation(l: any): Station {
+  const type = l.type === "P" || l.type === "A" ? l.type : "S";
+  return {
+    id: String(l.extId ?? l.lid),
+    lid: String(l.lid),
+    name: String(l.name),
+    lat: (l.crd?.y ?? 0) / 1e6,
+    lon: (l.crd?.x ?? 0) / 1e6,
+    products: Number(l.pCls ?? 0),
+    kind: type,
+    ...(typeof l.dist === "number" ? { distance: l.dist } : {}),
+  };
+}
+
+export async function searchStations(
+  query: string,
+  limit = 8,
+  /** Include addresses and points of interest, not only stations. */
+  includePlaces = false,
+): Promise<Station[]> {
   const q = query.trim();
   if (q.length < 2) return [];
   const res = await call("LocMatch", {
-    input: { loc: { type: "S", name: q + "?" }, maxLoc: limit, field: "S" },
+    input: {
+      loc: { type: includePlaces ? "ALL" : "S", name: q + "?" },
+      maxLoc: limit,
+      field: "S",
+    },
   });
   const locs: any[] = res?.match?.locL ?? [];
-  return locs
-    .filter((l) => l.type === "S" && l.extId)
-    .map((l) => ({
-      id: String(l.extId),
-      lid: String(l.lid),
-      name: String(l.name),
-      lat: (l.crd?.y ?? 0) / 1e6,
-      lon: (l.crd?.x ?? 0) / 1e6,
-      products: Number(l.pCls ?? 0),
-    }));
+  return locs.filter((l) => l.lid).map(toStation);
 }
 
 /**
@@ -140,17 +258,12 @@ export function coordsOfLid(lid: string): { x: number; y: number } | null {
   return { x: Number(x[1]), y: Number(y[1]) };
 }
 
-export function idOfLid(lid: string): string | null {
-  const m = lid.match(/@L=(\d+)@/);
-  return m ? m[1] : null;
-}
-
 export function nameOfLid(lid: string): string | null {
   const m = lid.match(/@O=([^@]+)@/);
   return m ? m[1] : null;
 }
 
-/** Stations within `maxDist` metres, busiest first. */
+/** Stations within `maxDist` metres, nearest first. */
 export async function nearbyStations(
   x: number,
   y: number,
@@ -166,16 +279,53 @@ export async function nearbyStations(
     locFltrL: [{ type: "PROD", mode: "INC", value: String(products) }],
   });
   const locs: any[] = res?.locL ?? [];
-  return locs
-    .filter((l) => l.type === "S" && l.extId)
-    .map((l) => ({
-      id: String(l.extId),
-      lid: String(l.lid),
-      name: String(l.name),
-      lat: (l.crd?.y ?? 0) / 1e6,
-      lon: (l.crd?.x ?? 0) / 1e6,
-      products: Number(l.pCls ?? 0),
-    }));
+  return locs.filter((l) => l.type === "S" && l.extId).map(toStation);
+}
+
+/* ----------------------------------------------------------- departures ---- */
+
+export async function departures(
+  lid: string,
+  when: string,
+  limit = 12,
+  products: number = ALL_PRODUCTS,
+): Promise<Departure[]> {
+  const date = when.slice(0, 10).replace(/-/g, "");
+  const time = when.slice(11, 13) + when.slice(14, 16) + "00";
+
+  const res = await call("StationBoard", {
+    type: "DEP",
+    stbLoc: { type: "S", lid },
+    date,
+    time,
+    maxJny: limit,
+    jnyFltrL: [{ type: "PROD", mode: "INC", value: String(products) }],
+  });
+
+  const prodL: any[] = res?.common?.prodL ?? [];
+  const jnyL: any[] = res?.jnyL ?? [];
+
+  return jnyL.map((j) => {
+    const stop = j.stbStop ?? {};
+    const prod = prodL[stop.dProdX ?? j.prodX] ?? {};
+    const cls = Number(prod.cls ?? 0);
+    const planned = toLocal(j.date, stop.dTimeS) ?? "";
+    const actual = toLocal(j.date, stop.dTimeR);
+    return {
+      id: String(j.jid ?? planned + prod.name),
+      line: String(prod.name ?? "")
+        .replace(/\s*\(Zug-Nr\.\s*\d+\)/, "")
+        .trim(),
+      category: categoryOf(cls),
+      productClass: cls,
+      direction: String(j.dirTxt ?? ""),
+      planned,
+      actual,
+      delay: minutesBetween(planned, actual),
+      platform: platformOf(stop, "d"),
+      cancelled: Boolean(j.isCncl || stop.dCncl),
+    };
+  });
 }
 
 /* ------------------------------------------------------------- journeys ---- */
@@ -189,6 +339,8 @@ export type TripOptions = {
   viaLid?: string;
   maxChanges?: number;
   results?: number;
+  /** Route geometry costs payload, so only the detailed search asks for it. */
+  geometry?: boolean;
 };
 
 export async function searchJourneys(opts: TripOptions): Promise<Journey[]> {
@@ -196,13 +348,13 @@ export async function searchJourneys(opts: TripOptions): Promise<Journey[]> {
   const time = opts.when.slice(11, 13) + opts.when.slice(14, 16) + "00";
 
   const req: any = {
-    depLocL: [{ type: "S", lid: opts.fromLid }],
-    arrLocL: [{ type: "S", lid: opts.toLid }],
+    depLocL: [{ type: locTypeOf(opts.fromLid), lid: opts.fromLid }],
+    arrLocL: [{ type: locTypeOf(opts.toLid), lid: opts.toLid }],
     outDate: date,
     outTime: time,
     outFrwd: true,
     getPasslist: false,
-    getPolyline: false,
+    getPolyline: Boolean(opts.geometry),
     numF: opts.results ?? 6,
     jnyFltrL: [
       { type: "PROD", mode: "INC", value: String(opts.products ?? ALL_PRODUCTS) },
@@ -215,18 +367,37 @@ export async function searchJourneys(opts: TripOptions): Promise<Journey[]> {
   const common = res?.common ?? {};
   const locL: any[] = common.locL ?? [];
   const prodL: any[] = common.prodL ?? [];
+  const remL: any[] = common.remL ?? [];
   const cons: any[] = res?.outConL ?? [];
+
+  const decoded: LatLon[][] = (common.polyL ?? []).map((p: any) =>
+    p?.crdEncYX ? decodePolyline(String(p.crdEncYX)) : [],
+  );
 
   const nameOf = (i: number | undefined) =>
     typeof i === "number" && locL[i] ? String(locL[i].name) : "?";
 
-  return cons.map((c) => parseJourney(c, nameOf, prodL));
+  return cons.map((c) => parseJourney(c, nameOf, prodL, remL, decoded));
+}
+
+/**
+ * Addresses and points of interest are not stations and have to be asked for as
+ * what they are. The kind is the leading `A=` of the location id: 1 station,
+ * 2 address, 4 point of interest.
+ */
+function locTypeOf(lid: string): "S" | "P" | "A" {
+  const m = lid.match(/(?:^|@)A=(\d+)@/);
+  if (m?.[1] === "2") return "A";
+  if (m?.[1] === "4") return "P";
+  return "S";
 }
 
 function parseJourney(
   c: any,
   nameOf: (i: number | undefined) => string,
   prodL: any[],
+  remL: any[],
+  decoded: LatLon[][],
 ): Journey {
   const date: string = c.date;
   const legs: Leg[] = [];
@@ -241,6 +412,9 @@ function parseJourney(
     const arrPlanned = toLocal(date, s.arr?.aTimeS);
     const arrActual = toLocal(date, s.arr?.aTimeR);
     if (!depPlanned || !arrPlanned) continue;
+
+    const attributes = isRide ? attributesOf(s, remL) : [];
+    const polyG = isRide ? s.jny?.polyG : s.gis?.polyG;
 
     legs.push({
       kind: isRide ? "ride" : "walk",
@@ -263,6 +437,14 @@ function parseJourney(
       arrDelay: minutesBetween(arrPlanned, arrActual),
       arrPlatform: platformOf(s.arr, "a"),
       cancelled: Boolean(s.jny?.isCncl || s.dep?.dCncl || s.arr?.aCncl),
+      distance: isRide ? null : (s.gis?.dist ?? null),
+      walkMinutes: isRide
+        ? null
+        : (durationMinutes(s.gis?.durS) ?? minutesBetween(depPlanned, arrPlanned)),
+      attributes,
+      bike: isRide ? bikeFrom(attributes) : null,
+      stepFree: isRide ? stepFreeFrom(attributes) : false,
+      points: geometryOf(polyG, decoded),
     });
   }
 
@@ -285,6 +467,16 @@ function parseJourney(
   const duration =
     Number(dur.slice(0, dur.length - 4)) * 60 + Number(dur.slice(-4, -2));
 
+  // One train that refuses bicycles decides the whole journey.
+  const bikeRanking: BikeCarriage[] = ["no", "reservation", "limited", "yes"];
+  let bike: BikeCarriage = rides.length > 0 ? "yes" : null;
+  for (const ride of rides) {
+    if (ride.bike === null) continue;
+    if (bikeRanking.indexOf(ride.bike) < bikeRanking.indexOf(bike ?? "yes")) {
+      bike = ride.bike;
+    }
+  }
+
   return {
     id: rides.map((l) => l.line + "@" + l.depPlanned).join("|") || depPlanned,
     depPlanned,
@@ -298,7 +490,10 @@ function parseJourney(
     legs,
     transferHubs,
     minTransfer,
+    walkMinutes: legs.reduce((sum, l) => sum + (l.walkMinutes ?? 0), 0),
     cancelled: legs.some((l) => l.cancelled),
+    bike,
+    stepFree: rides.length > 0 && rides.every((r) => r.stepFree),
     via: [],
   };
 }

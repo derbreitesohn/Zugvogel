@@ -1,20 +1,32 @@
+/*
+ * Eisvogelblau. The bird's back is a brilliant cyan-blue, roughly #12A3C9, and
+ * that is the brand colour: logo, route lines, swatches. White text on it only
+ * reaches 3:1, so anything that carries type uses the darkened --accent instead,
+ * which clears 4.5:1. Same hue, readable.
+ */
 :root {
-  --bg: #faf8f5;
+  --kingfisher: #12a3c9;
+  --bg: #f7fafb;
   --surface: #ffffff;
-  --surface-2: #f4f1ec;
-  --ink: #17191d;
-  --ink-2: #5c6169;
-  --ink-3: #8b9098;
-  --line: #e6e1d9;
-  --line-strong: #d4cec3;
-  --accent: #b8542a;
+  --surface-2: #eef4f6;
+  --ink: #12191d;
+  --ink-2: #566068;
+  --ink-3: #848f98;
+  --line: #dde7eb;
+  --line-strong: #c6d5db;
+  --accent: #0b7e9e;
   --accent-ink: #ffffff;
-  --accent-soft: #fbeee6;
-  --ok: #17795a;
-  --warn: #a4640c;
+  --accent-soft: #e4f4f9;
+  --ok: #157a5c;
+  --warn: #9c620d;
   --bad: #b3271e;
-  --shadow: 0 1px 2px rgba(23, 25, 29, 0.05), 0 8px 24px -12px rgba(23, 25, 29, 0.18);
 
+  --c0: #12a3c9;
+  --c1: #d97534;
+  --c2: #2e9e7b;
+  --c3: #7c6cd4;
+
+  --shadow: 0 1px 2px rgba(18, 25, 29, 0.05), 0 8px 24px -12px rgba(18, 25, 29, 0.18);
   --radius: 14px;
   --radius-sm: 9px;
   --gutter: 16px;
@@ -22,39 +34,53 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #121418;
-    --surface: #1a1d22;
-    --surface-2: #23272e;
-    --ink: #edeef0;
-    --ink-2: #a2a8b0;
-    --ink-3: #717881;
-    --line: #2b2f36;
-    --line-strong: #3a3f48;
-    --accent: #e08a5c;
-    --accent-ink: #1a1008;
-    --accent-soft: #2a1c14;
-    --ok: #45b48b;
-    --warn: #d9a04a;
+    --kingfisher: #5ed2f0;
+    --bg: #101519;
+    --surface: #182027;
+    --surface-2: #212b33;
+    --ink: #eaeff2;
+    --ink-2: #9dabb4;
+    --ink-3: #6d7c86;
+    --line: #29343c;
+    --line-strong: #39454e;
+    --accent: #46c3e4;
+    --accent-ink: #04222c;
+    --accent-soft: #102c37;
+    --ok: #44b58c;
+    --warn: #d8a04c;
     --bad: #e0776b;
+
+    --c0: #4cc7e8;
+    --c1: #ee9256;
+    --c2: #45bf96;
+    --c3: #9b8cea;
+
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.7);
   }
 }
 
 :root[data-theme="dark"] {
-  --bg: #121418;
-  --surface: #1a1d22;
-  --surface-2: #23272e;
-  --ink: #edeef0;
-  --ink-2: #a2a8b0;
-  --ink-3: #717881;
-  --line: #2b2f36;
-  --line-strong: #3a3f48;
-  --accent: #e08a5c;
-  --accent-ink: #1a1008;
-  --accent-soft: #2a1c14;
-  --ok: #45b48b;
-  --warn: #d9a04a;
+  --kingfisher: #5ed2f0;
+  --bg: #101519;
+  --surface: #182027;
+  --surface-2: #212b33;
+  --ink: #eaeff2;
+  --ink-2: #9dabb4;
+  --ink-3: #6d7c86;
+  --line: #29343c;
+  --line-strong: #39454e;
+  --accent: #46c3e4;
+  --accent-ink: #04222c;
+  --accent-soft: #102c37;
+  --ok: #44b58c;
+  --warn: #d8a04c;
   --bad: #e0776b;
+
+  --c0: #4cc7e8;
+  --c1: #ee9256;
+  --c2: #45bf96;
+  --c3: #9b8cea;
+
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.7);
 }
 
@@ -90,6 +116,10 @@ input {
   font-feature-settings: "tnum" 1;
 }
 
+.muted {
+  color: var(--ink-2);
+}
+
 /* ------------------------------------------------------------------ shell -- */
 
 .shell {
@@ -114,7 +144,7 @@ input {
 }
 
 .brand svg {
-  color: var(--accent);
+  color: var(--kingfisher);
   flex: none;
 }
 
@@ -128,7 +158,6 @@ input {
   display: block;
   font-size: 12.5px;
   color: var(--ink-3);
-  letter-spacing: 0.01em;
 }
 
 .ghost {
@@ -145,6 +174,17 @@ input {
 .ghost:hover {
   border-color: var(--line-strong);
   color: var(--ink);
+}
+
+.linkish {
+  background: none;
+  border: 0;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: inherit;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 /* ----------------------------------------------------------------- search -- */
@@ -240,7 +280,9 @@ input {
 }
 
 .suggestions button {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 9px;
   width: 100%;
   text-align: left;
   background: none;
@@ -259,6 +301,14 @@ input {
 .suggestions button[data-active="true"] {
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+.suggestions .kind {
+  flex: none;
+  font-size: 11px;
+  color: var(--ink-3);
+  width: 16px;
+  text-align: center;
 }
 
 .controls {
@@ -301,6 +351,128 @@ input {
 .primary:disabled {
   opacity: 0.55;
   cursor: default;
+}
+
+.actionbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.pin {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 13px;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.pin:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.pin:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.pin[data-saved="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* -------------------------------------------------------------------- map -- */
+
+.map {
+  margin: 0 0 14px;
+  padding: 10px 10px 4px;
+  overflow: hidden;
+}
+
+.map svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+}
+
+.route[data-index="0"] {
+  stroke: var(--c0);
+}
+.route[data-index="1"] {
+  stroke: var(--c1);
+}
+.route[data-index="2"] {
+  stroke: var(--c2);
+}
+.route[data-index="3"] {
+  stroke: var(--c3);
+}
+
+.route {
+  transition: opacity 0.18s;
+}
+
+.route[data-dim="true"] {
+  opacity: 0.22;
+}
+
+.pointA,
+.pointB {
+  fill: var(--surface);
+  stroke: var(--ink);
+  stroke-width: 2.4;
+}
+
+.map figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  padding: 9px 5px 7px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend i,
+.swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  flex: none;
+  display: inline-block;
+}
+
+.legend[data-index="0"] i,
+.swatch[data-index="0"] {
+  background: var(--c0);
+}
+.legend[data-index="1"] i,
+.swatch[data-index="1"] {
+  background: var(--c1);
+}
+.legend[data-index="2"] i,
+.swatch[data-index="2"] {
+  background: var(--c2);
+}
+.legend[data-index="3"] i,
+.swatch[data-index="3"] {
+  background: var(--c3);
 }
 
 /* ---------------------------------------------------------------- results -- */
@@ -355,7 +527,6 @@ input {
   flex: none;
   font-size: 11.5px;
   font-weight: 600;
-  letter-spacing: 0.02em;
   padding: 3px 9px;
   border-radius: 999px;
   background: var(--surface);
@@ -370,20 +541,33 @@ input {
   color: var(--accent-ink);
 }
 
+button.badge {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+button.badge:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.journey-wrap {
+  border-bottom: 1px solid var(--line);
+}
+
+.journey-wrap:last-child {
+  border-bottom: 0;
+}
+
 .journey {
   display: block;
   width: 100%;
   text-align: left;
   border: 0;
-  border-bottom: 1px solid var(--line);
   background: none;
   padding: 13px 16px;
   cursor: pointer;
   transition: background 0.12s;
-}
-
-.journey:last-child {
-  border-bottom: 0;
 }
 
 .journey:hover {
@@ -440,7 +624,6 @@ input {
 .line {
   font-size: 12px;
   font-weight: 620;
-  letter-spacing: 0.01em;
   padding: 2.5px 8px;
   border-radius: 6px;
   background: var(--surface-2);
@@ -457,7 +640,7 @@ input {
 
 .line[data-kind="regional"] {
   background: var(--accent-soft);
-  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
   color: var(--accent);
 }
 
@@ -472,10 +655,140 @@ input {
   font-size: 11px;
 }
 
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.chip {
+  font-size: 11.5px;
+  color: var(--ink-2);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 9px;
+  white-space: nowrap;
+}
+
+.chip[data-warn="true"] {
+  color: var(--bad);
+  border-color: color-mix(in srgb, var(--bad) 35%, var(--line));
+}
+
 .tight {
   font-size: 12px;
   color: var(--warn);
-  margin-top: 7px;
+  margin: 8px 0 0;
+}
+
+/* ------------------------------------------------------------------ legs -- */
+
+.legs {
+  padding: 4px 16px 16px;
+  display: grid;
+  gap: 10px;
+  border-top: 1px dashed var(--line);
+  margin-top: -1px;
+}
+
+.leg {
+  display: flex;
+  gap: 12px;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.leg strong {
+  font-weight: 620;
+}
+
+.leg-walk {
+  color: var(--ink-2);
+}
+
+.leg-time {
+  color: var(--ink-3);
+  min-width: 94px;
+  flex: none;
+}
+
+.facilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 5px;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+.facilities span::before {
+  content: "· ";
+}
+
+.facilities span:first-child::before {
+  content: "";
+}
+
+/* ------------------------------------------------------------ departures -- */
+
+.station-switch {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.station-switch button {
+  flex: none;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 5px 11px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.station-switch button[data-active="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.departure {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.departure:last-child {
+  border-bottom: 0;
+}
+
+.departure .clock {
+  font-size: 15.5px;
+}
+
+.direction {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.platform {
+  flex: none;
+  font-size: 12.5px;
+  color: var(--ink-3);
 }
 
 /* ------------------------------------------------------------------ saved -- */
@@ -494,7 +807,6 @@ input {
 .saved-route {
   font-size: 14.5px;
   font-weight: 620;
-  letter-spacing: -0.01em;
   padding-right: 22px;
   line-height: 1.35;
 }
@@ -541,32 +853,6 @@ input {
   background: var(--surface-2);
 }
 
-.pin {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 14px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  border-radius: 999px;
-  padding: 7px 14px;
-  font-size: 13px;
-  color: var(--ink-2);
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
-}
-
-.pin:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.pin[data-saved="true"] {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-
 /* ------------------------------------------------------------------ misc -- */
 
 .empty {
@@ -589,7 +875,7 @@ input {
 
 .empty p {
   margin: 0 auto;
-  max-width: 34ch;
+  max-width: 36ch;
   font-size: 14px;
   line-height: 1.55;
 }
@@ -658,4 +944,28 @@ input {
   .masthead {
     padding: 18px 0 16px;
   }
+  .leg-time {
+    min-width: 84px;
+  }
+}
+
+.undo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+
+.undo span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

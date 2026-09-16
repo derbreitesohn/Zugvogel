@@ -4,8 +4,8 @@
   "description": "Echtzeit-Abfahrten und alle Wege von A nach B.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#faf8f5",
-  "theme_color": "#b8542a",
+  "background_color": "#f7fafb",
+  "theme_color": "#12a3c9",
   "lang": "de-AT",
   "icons": [
     { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }

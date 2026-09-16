@@ -175,6 +175,8 @@ export async function findCorridors(
       fromLid: input.fromLid,
       toLid: input.toLid,
       when: input.when,
+      // The board only needs times; geometry is for the map on the results page.
+      geometry: !options.quick,
       ...extra,
     }).then((journeys) => journeys.map((j) => ({ ...j, via: [label] })));
 
