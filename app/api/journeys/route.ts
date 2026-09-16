@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { findCorridors } from "@/lib/corridors";
 
 export const dynamic = "force-dynamic";
+// The timetable backend sits in Austria: every hop from another continent
+// is paid twice, once out and once back.
+export const preferredRegion = "fra1";
 
 /** "YYYY-MM-DDTHH:MM" in Austrian local time, which is what the upstream speaks. */
 function nowInVienna(): string {

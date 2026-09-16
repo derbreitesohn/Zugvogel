@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { searchStations } from "@/lib/hafas";
 
 export const dynamic = "force-dynamic";
+// The timetable backend sits in Austria: every hop from another continent
+// is paid twice, once out and once back.
+export const preferredRegion = "fra1";
 
 export async function GET(request: Request) {
   const q = new URL(request.url).searchParams.get("q") ?? "";
