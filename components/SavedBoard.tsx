@@ -49,7 +49,6 @@ export function SavedBoard({ routes, onRemove, onOpen }: Props) {
     <>
       <div className="section-title">
         <h2>Gemerkte Strecken</h2>
-        <p>aktualisiert jede Minute</p>
       </div>
       <div className="saved-grid">
         {routes.map((route) => {
@@ -84,12 +83,12 @@ export function SavedBoard({ routes, onRemove, onOpen }: Props) {
 
                 {state === "loading" && (
                   <div className="saved-then" style={{ marginTop: 12 }}>
-                    wird geladen …
+                    lädt …
                   </div>
                 )}
                 {state === "error" && (
                   <div className="saved-then" style={{ marginTop: 12 }}>
-                    gerade nicht erreichbar
+                    nicht erreichbar
                   </div>
                 )}
 

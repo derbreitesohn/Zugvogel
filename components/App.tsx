@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Bird } from "./Bird";
+import { StarIcon } from "./Icons";
 import { CorridorList } from "./CorridorList";
 import { CorridorMap } from "./CorridorMap";
 import { NearbyBoard } from "./NearbyBoard";
@@ -197,7 +198,7 @@ export function App() {
             />
           )}
           <button className="primary" type="submit" disabled={!from || !to || loading}>
-            {loading ? "sucht alle Wege …" : "Verbindungen suchen"}
+            {loading ? "sucht …" : "Verbindungen suchen"}
           </button>
         </div>
       </form>
@@ -212,7 +213,7 @@ export function App() {
             onClick={togglePin}
             aria-pressed={saved}
           >
-            {saved ? "★ gemerkt" : "☆ Strecke merken"}
+            <><StarIcon filled={saved} /> {saved ? "gemerkt" : "merken"}</>
           </button>
         )}
       </div>
@@ -237,7 +238,6 @@ export function App() {
             <h2>
               {corridors.length} {corridors.length === 1 ? "Weg" : "Wege"}
             </h2>
-            <p>nach Korridor gruppiert, nicht nach Abfahrt</p>
           </div>
           <CorridorMap corridors={corridors} focus={focus} />
           <CorridorList corridors={corridors} onFocus={setFocus} />
@@ -246,15 +246,15 @@ export function App() {
 
       {!loading && corridors && corridors.length === 0 && (
         <div className="card empty" style={{ marginTop: 24 }}>
-          <h3>Keine Verbindung gefunden</h3>
-          <p>Zu dieser Zeit fährt nichts. Probier einen anderen Tag oder eine andere Uhrzeit.</p>
+          <h3>Nichts gefunden</h3>
+          <p>Zu dieser Zeit fährt nichts.</p>
         </div>
       )}
 
       {storageWarning && (
         <div className="notice" style={{ marginTop: 16 }}>
-          Dein Browser lässt nichts speichern (privates Fenster oder Speicher voll).
-          Gemerkte Strecken halten dann nur, solange der Tab offen ist.
+          Dein Browser speichert nichts. Gemerkte Strecken halten nur, solange der Tab
+          offen ist.
         </div>
       )}
 
@@ -274,17 +274,13 @@ export function App() {
       {!corridors && routes.length === 0 && (
         <div className="card empty" style={{ marginTop: 24 }}>
           <Bird size={38} />
-          <h3>Such deine erste Strecke</h3>
-          <p>
-            Zugvogel fragt den Fahrplan mehrmals und zeigt dir auch die Wege, die eine
-            normale Auskunft verschweigt. Gemerkte Strecken landen hier oben.
-          </p>
+          <h3>Wohin?</h3>
+          <p>Zugvogel zeigt dir auch die Wege, die eine normale Auskunft verschweigt.</p>
         </div>
       )}
 
       <footer className="foot">
-        Echtzeitdaten der ÖBB. Inoffizielles Projekt, keine Verbindung zu ÖBB, Westbahn
-        oder einem Verkehrsverbund. Angaben ohne Gewähr.
+        Echtzeitdaten der ÖBB. Inoffiziell, ohne Gewähr.
       </footer>
     </div>
   );

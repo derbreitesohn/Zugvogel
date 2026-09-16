@@ -9,12 +9,13 @@ import {
   hhmm,
   lineKind,
 } from "@/lib/format";
+import { BikeIcon, StepFreeIcon, WalkIcon } from "./Icons";
 import type { BikeCarriage, Corridor, Journey, Leg } from "@/lib/types";
 
 const BIKE_LABEL: Record<Exclude<BikeCarriage, null>, string> = {
-  yes: "Rad möglich",
+  yes: "Rad",
   limited: "Rad begrenzt",
-  reservation: "Rad mit Reservierung",
+  reservation: "Rad, Reservierung",
   no: "kein Rad",
 };
 
@@ -118,20 +119,28 @@ function JourneyRow({ journey }: { journey: Journey }) {
         <Lines journey={journey} />
 
         <div className="chips">
-          {journey.walkMinutes > 0 && <span className="chip">🚶 {journey.walkMinutes} min</span>}
-          {journey.bike && (
-            <span className="chip" data-warn={journey.bike === "no"}>
-              🚲 {BIKE_LABEL[journey.bike]}
+          {journey.walkMinutes > 0 && (
+            <span className="chip">
+              <WalkIcon /> {journey.walkMinutes} min
             </span>
           )}
-          {journey.stepFree && <span className="chip">♿ stufenfrei</span>}
+          {journey.bike && (
+            <span className="chip" data-warn={journey.bike === "no"}>
+              <BikeIcon /> {BIKE_LABEL[journey.bike]}
+            </span>
+          )}
+          {journey.stepFree && (
+            <span className="chip">
+              <StepFreeIcon /> stufenfrei
+            </span>
+          )}
         </div>
 
         {/* A four minute change is where a plan quietly falls apart, so say it
             before the traveller finds out on the platform. */}
         {journey.minTransfer !== null && journey.minTransfer <= 5 && (
           <p className="tight">
-            Nur {journey.minTransfer} min Umstieg in {journey.transferHubs[0]}
+            {journey.minTransfer} min Umstieg in {journey.transferHubs[0]}
           </p>
         )}
       </button>

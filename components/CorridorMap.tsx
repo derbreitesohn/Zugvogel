@@ -90,6 +90,12 @@ export function CorridorMap({ corridors, focus }: Props) {
         key: r.key,
         label: r.label,
         paths: r.legs.map((l) => ({ walk: l.walk, d: toPath(l.xy) })),
+        // Where one leg ends and the next begins: the changes. Without these
+        // the lines are just shapes, and the whole point is where you get off.
+        changes: r.legs
+          .slice(0, -1)
+          .map((l) => dot(l.xy.at(-1)))
+          .filter((d): d is { cx: number; cy: number } => d !== null),
       })),
       start: dot(start),
       finish: dot(finish),
@@ -127,6 +133,9 @@ export function CorridorMap({ corridors, focus }: Props) {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 />
+              ))}
+              {route.changes.map((c, i) => (
+                <circle key={"c" + i} className="change" r="3.4" {...c} />
               ))}
             </g>
           );

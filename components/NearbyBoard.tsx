@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { delayTone, hhmm, lineKind } from "@/lib/format";
+import { PinIcon } from "./Icons";
 import type { Departure, Station } from "@/lib/types";
 
 type Props = {
@@ -30,7 +31,7 @@ export function NearbyBoard({ onUseAsOrigin }: Props) {
 
   const locate = useCallback(() => {
     if (!("geolocation" in navigator)) {
-      setState({ phase: "failed", message: "Dieses Gerät kennt seinen Standort nicht." });
+      setState({ phase: "failed", message: "Kein Standort verfügbar." });
       return;
     }
     setState({ phase: "locating" });
@@ -47,7 +48,7 @@ export function NearbyBoard({ onUseAsOrigin }: Props) {
           }
           await loadBoard(stations[0], stations);
         } catch {
-          setState({ phase: "failed", message: "Die Abfahrten kamen nicht durch." });
+          setState({ phase: "failed", message: "Abfahrten nicht erreichbar." });
         }
       },
       (error) => {
@@ -55,7 +56,7 @@ export function NearbyBoard({ onUseAsOrigin }: Props) {
           error.code === error.PERMISSION_DENIED
             ? {
                 phase: "denied",
-                message: "Standort abgelehnt. Du kannst die Station auch eintippen.",
+                message: "Standort abgelehnt — tipp die Station ein.",
               }
             : { phase: "failed", message: "Standort nicht ermittelbar." },
         );
@@ -76,7 +77,7 @@ export function NearbyBoard({ onUseAsOrigin }: Props) {
   if (state.phase === "idle") {
     return (
       <button type="button" className="pin" onClick={locate}>
-        ⌖ Abfahrten in meiner Nähe
+        <PinIcon /> In meiner Nähe
       </button>
     );
   }
@@ -84,7 +85,7 @@ export function NearbyBoard({ onUseAsOrigin }: Props) {
   if (state.phase === "locating") {
     return (
       <button type="button" className="pin" disabled>
-        ⌖ Standort wird bestimmt …
+        <PinIcon /> Standort …
       </button>
     );
   }
@@ -109,7 +110,6 @@ export function NearbyBoard({ onUseAsOrigin }: Props) {
     <>
       <div className="section-title">
         <h2>Von hier</h2>
-        <p>aktualisiert jede Minute</p>
       </div>
 
       <section className="card">
@@ -144,7 +144,7 @@ export function NearbyBoard({ onUseAsOrigin }: Props) {
 
         {rows.length === 0 && (
           <p className="empty" style={{ padding: 24 }}>
-            Hier fährt gerade nichts weg.
+            Hier fährt gerade nichts.
           </p>
         )}
 
