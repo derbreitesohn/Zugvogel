@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   changesLabel,
   delayLabel,
@@ -10,7 +10,7 @@ import {
   lineKind,
 } from "@/lib/format";
 import { BikeIcon, StepFreeIcon, WalkIcon } from "./Icons";
-import type { BikeCarriage, Corridor, Journey, Leg } from "@/lib/types";
+import type { BikeCarriage, Corridor, Journey, Leg, Trip } from "@/lib/types";
 
 const BIKE_LABEL: Record<Exclude<BikeCarriage, null>, string> = {
   yes: "Rad",
@@ -35,7 +35,54 @@ function Lines({ journey }: { journey: Journey }) {
   );
 }
 
+/**
+ * Every stop the train makes. This is the view you open standing on a platform,
+ * when the question is no longer "which connection" but "does it stop where I
+ * need it to, and how late is it by then".
+ */
+function TripStops({ id }: { id: string }) {
+  const [trip, setTrip] = useState<Trip | "loading" | "error">("loading");
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/trip?id=" + encodeURIComponent(id))
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        setTrip(data.error ? "error" : data);
+      })
+      .catch(() => !cancelled && setTrip("error"));
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  if (trip === "loading") return <p className="stops-note">lädt …</p>;
+  if (trip === "error") return <p className="stops-note">Halte nicht abrufbar.</p>;
+
+  return (
+    <ol className="stops">
+      {trip.stops.map((stop, i) => (
+        <li key={i} data-cancelled={stop.cancelled}>
+          <span className="tnum stop-time">
+            {(stop.arrPlanned ?? stop.depPlanned ?? "").slice(11, 16)}
+          </span>
+          <span className="stop-name">{stop.name}</span>
+          {stop.delay > 0 && (
+            <span className="delay tnum" data-tone={delayTone(stop.delay)}>
+              +{stop.delay}
+            </span>
+          )}
+          {stop.platform && <span className="platform tnum">Gl. {stop.platform}</span>}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 function LegDetail({ leg }: { leg: Leg }) {
+  const [showStops, setShowStops] = useState(false);
+
   if (leg.kind === "walk") {
     return (
       <div className="leg leg-walk">
@@ -84,6 +131,19 @@ function LegDetail({ leg }: { leg: Leg }) {
               <span key={a}>{a}</span>
             ))}
           </span>
+        )}
+        {leg.tripId && (
+          <>
+            <button
+              type="button"
+              className="linkish stops-toggle"
+              onClick={() => setShowStops((v) => !v)}
+              aria-expanded={showStops}
+            >
+              {showStops ? "Halte ausblenden" : "Alle Halte"}
+            </button>
+            {showStops && <TripStops id={leg.tripId} />}
+          </>
         )}
       </span>
     </div>
@@ -143,6 +203,14 @@ function JourneyRow({ journey }: { journey: Journey }) {
             {journey.minTransfer} min Umstieg in {journey.transferHubs[0]}
           </p>
         )}
+
+        {/* Engineering work and replacement buses can make a perfect looking
+            connection worthless, so they belong on the summary, not buried. */}
+        {journey.warnings.slice(0, 2).map((w) => (
+          <p className="warn" key={w}>
+            {w}
+          </p>
+        ))}
       </button>
 
       {open && (
@@ -169,6 +237,7 @@ export function CorridorList({
         <section
           className="card corridor"
           key={corridor.key}
+          id={"korridor-" + index}
           data-index={index % 4}
           onMouseEnter={() => onFocus?.(index)}
           onMouseLeave={() => onFocus?.(undefined)}

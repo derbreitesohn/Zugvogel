@@ -13,6 +13,7 @@ export async function GET(request: Request) {
   const to = params.get("to");
   const when = params.get("when") || nowInVienna();
   const quick = params.get("quick") === "1";
+  const backward = params.get("dir") === "bwd";
 
   if (!from || !to) {
     return NextResponse.json(
@@ -22,7 +23,10 @@ export async function GET(request: Request) {
   }
 
   try {
-    const corridors = await findCorridors({ fromLid: from, toLid: to, when }, { quick });
+    const corridors = await findCorridors(
+      { fromLid: from, toLid: to, when },
+      { quick, backward },
+    );
     return NextResponse.json(
       { corridors, when },
       { headers: { "Cache-Control": "no-store" } },

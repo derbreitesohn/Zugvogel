@@ -394,16 +394,39 @@ input {
 
 .map {
   margin: 0 0 14px;
-  padding: 10px 10px 4px;
+  padding: 8px 8px 2px;
   overflow: hidden;
 }
 
-.map svg {
-  display: block;
+.map-frame {
+  position: relative;
   width: 100%;
-  height: auto;
-  background: var(--surface-2);
+  overflow: hidden;
   border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.tiles img {
+  position: absolute;
+  display: block;
+  /* Tiles are drawn for paper-white maps. Dialling them back keeps the routes
+     the loudest thing on the page, which is the only reason the map is here. */
+  filter: saturate(0.45) contrast(0.92) brightness(1.03);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .tiles img {
+    filter: invert(1) hue-rotate(180deg) saturate(0.4) brightness(0.86) contrast(0.92);
+  }
+}
+
+:root[data-theme="dark"] .tiles img {
+  filter: invert(1) hue-rotate(180deg) saturate(0.4) brightness(0.86) contrast(0.92);
+}
+
+.map svg {
+  position: relative;
+  display: block;
 }
 
 .route[data-index="0"] {
@@ -423,21 +446,60 @@ input {
   transition: opacity 0.18s;
 }
 
+.route[data-clickable="true"] {
+  cursor: pointer;
+}
+
 .route[data-dim="true"] {
-  opacity: 0.22;
+  opacity: 0.25;
+}
+
+/* Invisible, and forty pixels wide, so a route can be tapped on a phone. */
+.route .hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 20;
+  stroke-linecap: round;
+}
+
+.route .change {
+  fill: var(--surface);
+  stroke: inherit;
+  stroke-width: 2.4;
 }
 
 .pointA,
 .pointB {
   fill: var(--surface);
   stroke: var(--ink);
-  stroke-width: 2.4;
+  stroke-width: 2.6;
+}
+
+.pointB {
+  fill: var(--ink);
+}
+
+/* Place names sit on top of photography-like tiles, so they carry their own
+   halo rather than trusting the map underneath to stay light. */
+.label {
+  font-size: 11px;
+  font-weight: 600;
+  fill: var(--ink);
+  stroke: var(--surface);
+  stroke-width: 3.2;
+  paint-order: stroke fill;
+  stroke-linejoin: round;
+}
+
+.label.strong {
+  font-size: 12.5px;
 }
 
 .map figcaption {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 14px;
+  align-items: center;
+  gap: 4px 12px;
   padding: 9px 5px 7px;
   font-size: 12px;
   color: var(--ink-2);
@@ -447,6 +509,27 @@ input {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  background: none;
+  border: 0;
+  padding: 3px 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: opacity 0.18s;
+}
+
+.legend[data-dim="true"] {
+  opacity: 0.45;
+}
+
+.legend:hover {
+  color: var(--ink);
+}
+
+.attribution {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--ink-3);
 }
 
 .legend i,
@@ -1017,11 +1100,6 @@ button.badge:hover {
     font-size: 12.5px;
   }
 
-  /* A map three times as wide as it is tall is unreadable on a phone. */
-  .map svg {
-    min-height: 180px;
-  }
-
   .suggestions {
     max-height: min(290px, 45dvh);
   }
@@ -1082,8 +1160,62 @@ button.badge:hover {
   white-space: nowrap;
 }
 
-.route .change {
-  fill: var(--surface);
-  stroke: inherit;
-  stroke-width: 2.2;
+
+.warn {
+  font-size: 12px;
+  color: var(--warn);
+  margin: 6px 0 0;
+}
+
+.pager {
+  display: flex;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.stops-toggle {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 12.5px;
+}
+
+.stops-note {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+.stops {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0 0 0 11px;
+  border-left: 2px solid var(--line-strong);
+  display: grid;
+  gap: 5px;
+}
+
+.stops li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12.5px;
+}
+
+.stops li[data-cancelled="true"] .stop-name {
+  text-decoration: line-through;
+  color: var(--bad);
+}
+
+.stop-time {
+  color: var(--ink-3);
+  flex: none;
+  min-width: 38px;
+}
+
+.stop-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

@@ -47,6 +47,8 @@ export type Leg = {
   stepFree: boolean;
   /** Route geometry, thinned for the wire. Empty when the upstream had none. */
   points: LatLon[];
+  /** Upstream id of this ride, to look up every stop it makes. */
+  tripId: string | null;
 };
 
 export type Journey = {
@@ -71,6 +73,8 @@ export type Journey = {
   /** The weakest bike rule across all trains: one "no" makes the journey a no. */
   bike: BikeCarriage;
   stepFree: boolean;
+  /** Disruptions, engineering work and replacement buses touching this journey. */
+  warnings: string[];
   /** Which search strategy surfaced it first. Handy while we tune the fan-out. */
   via: string[];
 };
@@ -100,6 +104,24 @@ export type Departure = {
   delay: number;
   platform: string | null;
   cancelled: boolean;
+};
+
+/** One stop on a train's run, for the "where does it actually go" view. */
+export type TripStop = {
+  name: string;
+  arrPlanned: string | null;
+  arrActual: string | null;
+  depPlanned: string | null;
+  depActual: string | null;
+  delay: number;
+  platform: string | null;
+  cancelled: boolean;
+};
+
+export type Trip = {
+  line: string;
+  direction: string;
+  stops: TripStop[];
 };
 
 export type SavedRoute = {

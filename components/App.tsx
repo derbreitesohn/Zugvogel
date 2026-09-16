@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Bird } from "./Bird";
-import { StarIcon } from "./Icons";
+import { BikeIcon, ShareIcon, StarIcon, StepFreeIcon } from "./Icons";
 import { CorridorList } from "./CorridorList";
 import { CorridorMap } from "./CorridorMap";
 import { NearbyBoard } from "./NearbyBoard";
@@ -52,8 +52,12 @@ export function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [routes, setRoutes] = useState<SavedRoute[]>([]);
+  const [onlyStepFree, setOnlyStepFree] = useState(false);
+  const [onlyBike, setOnlyBike] = useState(false);
+  const [shared, setShared] = useState(false);
 
-  const search = useCallback(async (a: Station, b: Station, at: string) => {
+  const search = useCallback(
+    async (a: Station, b: Station, at: string, dir: "fwd" | "bwd" = "fwd") => {
     setLoading(true);
     setError(null);
     writeUrl(a, b, at);
@@ -63,6 +67,7 @@ export function App() {
         encodeURIComponent(a.lid) +
         "&to=" +
         encodeURIComponent(b.lid) +
+        (dir === "bwd" ? "&dir=bwd" : "") +
         (at ? "&when=" + encodeURIComponent(at) : "");
       const res = await fetch(url);
       const data = await res.json();
@@ -78,6 +83,17 @@ export function App() {
     } finally {
       setLoading(false);
     }
+    },
+    [],
+  );
+
+  // Offline support, registered after the page is usable so it never competes
+  // with the first search for bandwidth.
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    const register = () => navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+    if (document.readyState === "complete") register();
+    else window.addEventListener("load", register, { once: true });
   }, []);
 
   // A shared link should show the connection, not an empty form.
@@ -100,6 +116,31 @@ export function App() {
     setWhen(ab);
     search(a, b, ab);
   }, [search]);
+
+  /**
+   * Paging through the timetable by moving the clock rather than juggling one
+   * scroll token per fan-out query.
+   *
+   * Later starts a minute after the last departure on screen. Earlier steps back
+   * an hour and a half instead of asking the upstream to search backwards: that
+   * mode means "arrive by this time", so on a three hour trip it answers with
+   * last night's train, which is not what the button says.
+   */
+  const shift = useCallback(
+    (direction: "earlier" | "later") => {
+      if (!from || !to || !corridors?.length) return;
+      const best = corridors[0].journeys;
+      const anchor =
+        direction === "later" ? best[best.length - 1]?.depPlanned : best[0]?.depPlanned;
+      if (!anchor) return;
+      const step = direction === "later" ? 60_000 : -90 * 60_000;
+      const next = new Date(Date.parse(anchor + "Z") + step).toISOString().slice(0, 16);
+      setWhen(next);
+      search(from, to, next);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    [from, to, corridors, search],
+  );
 
   function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -146,6 +187,26 @@ export function App() {
     setUndo(null);
   }
 
+  function selectCorridor(index: number) {
+    setFocus(index);
+    document
+      .getElementById("korridor-" + index)
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  async function share() {
+    const url = window.location.href;
+    const title = from && to ? from.name + " \u2192 " + to.name : "Zugvogel";
+    try {
+      if (navigator.share) await navigator.share({ title, url });
+      else await navigator.clipboard.writeText(url);
+      setShared(true);
+      window.setTimeout(() => setShared(false), 2000);
+    } catch {
+      // Cancelled, or no clipboard permission. Nothing worth reporting.
+    }
+  }
+
   function openRoute(route: SavedRoute) {
     setFrom(route.from);
     setTo(route.to);
@@ -153,6 +214,18 @@ export function App() {
     search(route.from, route.to, "");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
+
+  /* Filters run on the result rather than the query: the upstream has no flag
+     for "step free only", and asking eight more times would be slower than
+     hiding what does not qualify. */
+  const shown = (corridors ?? [])
+    .map((c) => ({
+      ...c,
+      journeys: c.journeys.filter(
+        (j) => (!onlyStepFree || j.stepFree) && (!onlyBike || (j.bike && j.bike !== "no")),
+      ),
+    }))
+    .filter((c) => c.journeys.length > 0);
 
   return (
     <div className="shell">
@@ -206,15 +279,38 @@ export function App() {
       <div className="actionbar">
         <NearbyBoard onUseAsOrigin={setFrom} />
         {from && to && corridors && (
-          <button
-            type="button"
-            className="pin"
-            data-saved={saved}
-            onClick={togglePin}
-            aria-pressed={saved}
-          >
-            <><StarIcon filled={saved} /> {saved ? "gemerkt" : "merken"}</>
-          </button>
+          <>
+            <button
+              type="button"
+              className="pin"
+              data-saved={saved}
+              onClick={togglePin}
+              aria-pressed={saved}
+            >
+              <StarIcon filled={saved} /> {saved ? "gemerkt" : "merken"}
+            </button>
+            <button type="button" className="pin" onClick={share}>
+              <ShareIcon /> {shared ? "kopiert" : "teilen"}
+            </button>
+            <button
+              type="button"
+              className="pin"
+              data-saved={onlyStepFree}
+              onClick={() => setOnlyStepFree((v) => !v)}
+              aria-pressed={onlyStepFree}
+            >
+              <StepFreeIcon /> stufenfrei
+            </button>
+            <button
+              type="button"
+              className="pin"
+              data-saved={onlyBike}
+              onClick={() => setOnlyBike((v) => !v)}
+              aria-pressed={onlyBike}
+            >
+              <BikeIcon /> mit Rad
+            </button>
+          </>
         )}
       </div>
 
@@ -232,22 +328,34 @@ export function App() {
         </div>
       )}
 
-      {!loading && corridors && corridors.length > 0 && (
+      {!loading && shown.length > 0 && (
         <>
           <div className="section-title">
             <h2>
-              {corridors.length} {corridors.length === 1 ? "Weg" : "Wege"}
+              {shown.length} {shown.length === 1 ? "Weg" : "Wege"}
             </h2>
+            <button type="button" className="linkish" onClick={() => shift("earlier")}>
+              früher
+            </button>
           </div>
-          <CorridorMap corridors={corridors} focus={focus} />
-          <CorridorList corridors={corridors} onFocus={setFocus} />
+          <CorridorMap corridors={shown} focus={focus} onSelect={selectCorridor} />
+          <CorridorList corridors={shown} onFocus={setFocus} />
+          <div className="pager">
+            <button type="button" className="pin" onClick={() => shift("later")}>
+              spätere Verbindungen
+            </button>
+          </div>
         </>
       )}
 
-      {!loading && corridors && corridors.length === 0 && (
+      {!loading && corridors && shown.length === 0 && (
         <div className="card empty" style={{ marginTop: 24 }}>
           <h3>Nichts gefunden</h3>
-          <p>Zu dieser Zeit fährt nichts.</p>
+          <p>
+            {onlyStepFree || onlyBike
+              ? "Keine Verbindung passt zu den Filtern."
+              : "Zu dieser Zeit fährt nichts."}
+          </p>
         </div>
       )}
 

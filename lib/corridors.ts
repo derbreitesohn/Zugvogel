@@ -149,6 +149,8 @@ export type FanOutOptions = {
    * nobody asked for would make the home screen feel broken.
    */
   quick?: boolean;
+  /** Treat `when` as "arrive by" instead of "depart at". */
+  backward?: boolean;
 };
 
 export async function findCorridors(
@@ -177,6 +179,7 @@ export async function findCorridors(
       when: input.when,
       // The board only needs times; geometry is for the map on the results page.
       geometry: !options.quick,
+      backward: options.backward,
       ...extra,
     }).then((journeys) => journeys.map((j) => ({ ...j, via: [label] })));
 

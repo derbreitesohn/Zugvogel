@@ -80,3 +80,13 @@ export function StarIcon({ filled = false, ...props }: Props & { filled?: boolea
     </Frame>
   );
 }
+
+export function ShareIcon(props: Props) {
+  return (
+    <Frame {...props}>
+      <path d="M8 10.4V2.2" />
+      <path d="m5.2 4.8 2.8-2.6 2.8 2.6" />
+      <path d="M3.4 8.6v4.2a1 1 0 0 0 1 1h7.2a1 1 0 0 0 1-1V8.6" />
+    </Frame>
+  );
+}

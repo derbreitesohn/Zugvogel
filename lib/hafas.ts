@@ -5,6 +5,8 @@ import type {
   LatLon,
   Leg,
   Station,
+  Trip,
+  TripStop,
 } from "./types";
 
 /**
@@ -197,6 +199,23 @@ function stepFreeFrom(texts: string[]): boolean {
   return texts.some((t) => /rollstuhl|niederflur|einstiegshilfe/i.test(t));
 }
 
+/**
+ * Disruptions: engineering work, replacement buses, lifts out of order. These
+ * are the notes that can make an otherwise perfect connection useless, so they
+ * are pulled out separately from the amenity notes above.
+ */
+function warningsOf(section: any, himL: any[]): string[] {
+  const out: string[] = [];
+  for (const msg of section?.jny?.msgL ?? []) {
+    if (msg.type !== "HIM") continue;
+    const him = himL[msg.himX];
+    if (!him) continue;
+    const text = String(him.head ?? him.lead ?? him.text ?? "").trim();
+    if (text && !out.includes(text)) out.push(text);
+  }
+  return out;
+}
+
 /** Facility notes the operator attached to this train. */
 function attributesOf(section: any, remL: any[]): string[] {
   const out: string[] = [];
@@ -341,6 +360,12 @@ export type TripOptions = {
   results?: number;
   /** Route geometry costs payload, so only the detailed search asks for it. */
   geometry?: boolean;
+  /**
+   * Treat `when` as an arrival deadline rather than a departure time: give me
+   * what gets there by then. Not the same as "earlier departures", which is
+   * just a shifted clock.
+   */
+  backward?: boolean;
 };
 
 export async function searchJourneys(opts: TripOptions): Promise<Journey[]> {
@@ -352,7 +377,7 @@ export async function searchJourneys(opts: TripOptions): Promise<Journey[]> {
     arrLocL: [{ type: locTypeOf(opts.toLid), lid: opts.toLid }],
     outDate: date,
     outTime: time,
-    outFrwd: true,
+    outFrwd: !opts.backward,
     getPasslist: false,
     getPolyline: Boolean(opts.geometry),
     numF: opts.results ?? 6,
@@ -368,6 +393,7 @@ export async function searchJourneys(opts: TripOptions): Promise<Journey[]> {
   const locL: any[] = common.locL ?? [];
   const prodL: any[] = common.prodL ?? [];
   const remL: any[] = common.remL ?? [];
+  const himL: any[] = common.himL ?? [];
   const cons: any[] = res?.outConL ?? [];
 
   const decoded: LatLon[][] = (common.polyL ?? []).map((p: any) =>
@@ -377,7 +403,7 @@ export async function searchJourneys(opts: TripOptions): Promise<Journey[]> {
   const nameOf = (i: number | undefined) =>
     typeof i === "number" && locL[i] ? String(locL[i].name) : "?";
 
-  return cons.map((c) => parseJourney(c, nameOf, prodL, remL, decoded));
+  return cons.map((c) => parseJourney(c, nameOf, prodL, remL, himL, decoded));
 }
 
 /**
@@ -397,10 +423,12 @@ function parseJourney(
   nameOf: (i: number | undefined) => string,
   prodL: any[],
   remL: any[],
+  himL: any[],
   decoded: LatLon[][],
 ): Journey {
   const date: string = c.date;
   const legs: Leg[] = [];
+  const warnings: string[] = [];
 
   for (const s of c.secL ?? []) {
     const isRide = s.type === "JNY";
@@ -445,7 +473,10 @@ function parseJourney(
       bike: isRide ? bikeFrom(attributes) : null,
       stepFree: isRide ? stepFreeFrom(attributes) : false,
       points: geometryOf(polyG, decoded),
+      tripId: isRide && s.jny?.jid ? String(s.jny.jid) : null,
     });
+
+    if (isRide) for (const w of warningsOf(s, himL)) if (!warnings.includes(w)) warnings.push(w);
   }
 
   const rides = legs.filter((l) => l.kind === "ride");
@@ -492,8 +523,55 @@ function parseJourney(
     minTransfer,
     walkMinutes: legs.reduce((sum, l) => sum + (l.walkMinutes ?? 0), 0),
     cancelled: legs.some((l) => l.cancelled),
+    warnings,
     bike,
     stepFree: rides.length > 0 && rides.every((r) => r.stepFree),
     via: [],
+  };
+}
+
+/* ----------------------------------------------------------------- trip ---- */
+
+/**
+ * Every stop a train makes, with live times. This is the view you open while
+ * standing on the platform: not "which connection", but "where is it now and
+ * when does it reach me".
+ */
+export async function tripStops(jid: string): Promise<Trip> {
+  const res = await call("JourneyDetails", {
+    jid,
+    getPolyline: false,
+    getPasslist: true,
+  });
+
+  const journey = res?.journey ?? {};
+  const locL: any[] = res?.common?.locL ?? [];
+  const prod = res?.common?.prodL?.[journey.prodX] ?? {};
+  const date: string = journey.date;
+
+  const stops: TripStop[] = (journey.stopL ?? []).map((stop: any) => {
+    const arrPlanned = toLocal(date, stop.aTimeS);
+    const arrActual = toLocal(date, stop.aTimeR);
+    const depPlanned = toLocal(date, stop.dTimeS);
+    const depActual = toLocal(date, stop.dTimeR);
+    return {
+      name: locL[stop.locX] ? String(locL[stop.locX].name) : "?",
+      arrPlanned,
+      arrActual,
+      depPlanned,
+      depActual,
+      delay:
+        minutesBetween(depPlanned, depActual) || minutesBetween(arrPlanned, arrActual),
+      platform: platformOf(stop, "d") ?? platformOf(stop, "a"),
+      cancelled: Boolean(stop.dCncl || stop.aCncl),
+    };
+  });
+
+  return {
+    line: String(prod.name ?? "")
+      .replace(/\s*\(Zug-Nr\.\s*\d+\)/, "")
+      .trim(),
+    direction: String(journey.dirTxt ?? ""),
+    stops,
   };
 }
