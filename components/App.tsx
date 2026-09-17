@@ -5,7 +5,7 @@ import { Bird } from "./Bird";
 import { BikeIcon, ShareIcon, StarIcon, StepFreeIcon } from "./Icons";
 import { CorridorList } from "./CorridorList";
 import { CorridorMap } from "./CorridorMap";
-import { NearbyBoard } from "./NearbyBoard";
+import { NearbyPanel, NearbyTrigger, useNearby } from "./NearbyBoard";
 import { SavedBoard } from "./SavedBoard";
 import { StationField } from "./StationField";
 import { nowLocal } from "@/lib/format";
@@ -55,6 +55,7 @@ export function App() {
   const [onlyStepFree, setOnlyStepFree] = useState(false);
   const [onlyBike, setOnlyBike] = useState(false);
   const [shared, setShared] = useState(false);
+  const nearby = useNearby();
 
   const search = useCallback(
     async (a: Station, b: Station, at: string, dir: "fwd" | "bwd" = "fwd") => {
@@ -277,7 +278,7 @@ export function App() {
       </form>
 
       <div className="actionbar">
-        <NearbyBoard onUseAsOrigin={setFrom} />
+        <NearbyTrigger nearby={nearby} />
         {from && to && corridors && (
           <>
             <button
@@ -313,6 +314,8 @@ export function App() {
           </>
         )}
       </div>
+
+      <NearbyPanel nearby={nearby} onUseAsOrigin={setFrom} />
 
       {error && (
         <div className="notice" style={{ marginTop: 20 }} role="alert">

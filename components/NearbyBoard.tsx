@@ -5,11 +5,6 @@ import { delayTone, hhmm, lineKind } from "@/lib/format";
 import { PinIcon } from "./Icons";
 import type { Departure, Station } from "@/lib/types";
 
-type Props = {
-  /** Offer the station as a starting point for a search. */
-  onUseAsOrigin: (station: Station) => void;
-};
-
 type State =
   | { phase: "idle" }
   | { phase: "locating" }
@@ -19,12 +14,17 @@ type State =
 /**
  * The commuter case: you are standing somewhere and want to know what leaves
  * from here and whether it is late. No typing, no route, just the board.
+ *
+ * The trigger belongs in the row of buttons and the board belongs underneath it
+ * at full width, so the state lives here and the two pieces render separately.
  */
-export function NearbyBoard({ onUseAsOrigin }: Props) {
+export function useNearby() {
   const [state, setState] = useState<State>({ phase: "idle" });
 
   const loadBoard = useCallback(async (station: Station, stations: Station[]) => {
-    const res = await fetch("/api/board?limit=8&station=" + encodeURIComponent(station.lid));
+    const res = await fetch(
+      "/api/board?limit=8&station=" + encodeURIComponent(station.lid),
+    );
     const data = await res.json();
     setState({ phase: "ready", stations, station, rows: data.departures ?? [] });
   }, []);
@@ -54,10 +54,7 @@ export function NearbyBoard({ onUseAsOrigin }: Props) {
       (error) => {
         setState(
           error.code === error.PERMISSION_DENIED
-            ? {
-                phase: "denied",
-                message: "Standort abgelehnt — tipp die Station ein.",
-              }
+            ? { phase: "denied", message: "Standort abgelehnt — tipp die Station ein." }
             : { phase: "failed", message: "Standort nicht ermittelbar." },
         );
       },
@@ -65,22 +62,24 @@ export function NearbyBoard({ onUseAsOrigin }: Props) {
     );
   }, [loadBoard]);
 
-  // Keep the board alive once it is open: delays are the whole point.
+  const close = useCallback(() => setState({ phase: "idle" }), []);
+
+  // Keep the board alive while it is open: delays are the whole point. Closing
+  // it drops the interval too, so nothing keeps polling in the background.
   useEffect(() => {
     if (state.phase !== "ready") return;
-    const station = state.station;
-    const stations = state.stations;
+    const { station, stations } = state;
     const timer = window.setInterval(() => loadBoard(station, stations), 60_000);
     return () => window.clearInterval(timer);
   }, [state, loadBoard]);
 
-  if (state.phase === "idle") {
-    return (
-      <button type="button" className="pin" onClick={locate}>
-        <PinIcon /> In meiner Nähe
-      </button>
-    );
-  }
+  return { state, locate, close, loadBoard };
+}
+
+export type Nearby = ReturnType<typeof useNearby>;
+
+export function NearbyTrigger({ nearby }: { nearby: Nearby }) {
+  const { state, locate, close } = nearby;
 
   if (state.phase === "locating") {
     return (
@@ -90,19 +89,44 @@ export function NearbyBoard({ onUseAsOrigin }: Props) {
     );
   }
 
+  if (state.phase === "ready") {
+    return (
+      <button type="button" className="pin" data-saved onClick={close}>
+        <PinIcon /> Nähe ausblenden
+      </button>
+    );
+  }
+
+  return (
+    <button type="button" className="pin" onClick={locate}>
+      <PinIcon /> In meiner Nähe
+    </button>
+  );
+}
+
+export function NearbyPanel({
+  nearby,
+  onUseAsOrigin,
+}: {
+  nearby: Nearby;
+  onUseAsOrigin: (station: Station) => void;
+}) {
+  const { state, locate, close, loadBoard } = nearby;
+
   if (state.phase === "denied" || state.phase === "failed") {
     return (
-      <div className="notice" style={{ marginTop: 16 }}>
-        {state.message}{" "}
+      <div className="notice notice-row" style={{ marginTop: 16 }}>
+        <span>{state.message}</span>
         <button type="button" className="linkish" onClick={locate}>
-          nochmal versuchen
+          nochmal
+        </button>
+        <button type="button" className="close" onClick={close} aria-label="Schließen">
+          ×
         </button>
       </div>
     );
   }
 
-  // Everything else has returned by now; naming the fields makes that
-  // explicit to the reader and to the type checker.
   if (state.phase !== "ready") return null;
   const { station, stations, rows } = state;
 
@@ -110,6 +134,9 @@ export function NearbyBoard({ onUseAsOrigin }: Props) {
     <>
       <div className="section-title">
         <h2>Von hier</h2>
+        <button type="button" className="linkish" onClick={close}>
+          ausblenden
+        </button>
       </div>
 
       <section className="card">
@@ -124,6 +151,9 @@ export function NearbyBoard({ onUseAsOrigin }: Props) {
             onClick={() => onUseAsOrigin(station)}
           >
             als Start
+          </button>
+          <button type="button" className="close" onClick={close} aria-label="Schließen">
+            ×
           </button>
         </header>
 
